@@ -1,0 +1,6 @@
+{
+  "name": "greymetre-guides",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" }
+}
