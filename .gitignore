@@ -2,3 +2,5 @@
 .vercel
 node_modules
 .env*
+Greymetre_Guides_Site_v*/
+Greymetre_Guides_Site_v*.zip

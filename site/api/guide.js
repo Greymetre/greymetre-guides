@@ -72,7 +72,7 @@ function guideEmailHtml({ first, guide, pdfUrl, book, s }) {
   <p style="margin:0 0 28px">Warm regards,<br><strong>${esc(s.name)}</strong><br><span style="color:#4A5A64;font-size:14px">${esc(s.title)} | <a href="https://greymetre.io" style="color:#0E6E5C">Greymetre</a><br><a href="${s.linkedin}" style="color:#0E6E5C">LinkedIn</a> | <a href="tel:+91${s.phone}" style="color:#4A5A64;text-decoration:none">${s.phone}</a></span></p>
 </td></tr>
 <tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;border-radius:0 0 6px 6px;padding:0 32px 24px;${F}font-size:12px;line-height:1.5;color:#4A5A64">
-  Button not working? Open the guide here: <a href="${pdfUrl}" style="color:#0E6E5C;word-break:break-all">${pdfUrl}</a>
+  Button not working? Open the guide here: <a href="${pdfUrl}" style="color:#0E6E5C">${esc(guide.title)}</a>
 </td></tr>
 <tr><td align="center" style="padding:16px 32px;${F}font-size:12px;line-height:1.5;color:#4A5A64">Greymetre · greymetre.io<br>You are receiving this because you requested this guide at go.greymetre.com.</td></tr>
 </table></td></tr></table></body></html>`;
@@ -123,6 +123,7 @@ export default async function handler(req, res) {
   if (!d.name) return res.status(400).json({ error: 'Please enter your name.', field: 'name' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) return res.status(400).json({ error: 'Please enter a valid work email.', field: 'email' });
   if (!d.company) return res.status(400).json({ error: 'Please enter your company.', field: 'company' });
+  if ((d.phone.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '')).length !== 10) return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.', field: 'phone' });
   if (!d.consent) return res.status(400).json({ error: 'Please tick the consent box to receive the guide.', field: 'consent' });
   // bots: honeypot is handled client-side; also drop sub-2-second submits silently
   if (Number(b.elapsed_ms) > 0 && Number(b.elapsed_ms) < 2000) return res.status(200).json({ ok: true });
@@ -180,7 +181,7 @@ export default async function handler(req, res) {
       `${d.name} (${d.role || 'role not given'}) at ${d.company} downloaded the ${lever} guide.`,
       ``,
       `Email: ${d.email}`,
-      `Mobile: ${d.phone || 'not given'}`,
+      `Mobile: ${d.phone}`,
       `Lead ID: ${d.lid || 'none (forwarded or direct visit)'}`,
       `Came from your mailbox: ${s.email}`,
       `Guide email sent: ${result.guide ? 'yes' : 'NO - send the PDF manually: ' + pdfUrl}`,
