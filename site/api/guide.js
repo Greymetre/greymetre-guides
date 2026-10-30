@@ -123,7 +123,7 @@ export default async function handler(req, res) {
   if (!d.name) return res.status(400).json({ error: 'Please enter your name.', field: 'name' });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) return res.status(400).json({ error: 'Please enter a valid work email.', field: 'email' });
   if (!d.company) return res.status(400).json({ error: 'Please enter your company.', field: 'company' });
-  if ((d.phone.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '')).length !== 10) return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.', field: 'phone' });
+  if (d.phone && (d.phone.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '')).length !== 10) return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.', field: 'phone' });
   if (!d.consent) return res.status(400).json({ error: 'Please tick the consent box to receive the guide.', field: 'consent' });
   // bots: honeypot is handled client-side; also drop sub-2-second submits silently
   if (Number(b.elapsed_ms) > 0 && Number(b.elapsed_ms) < 2000) return res.status(200).json({ ok: true });
@@ -181,7 +181,7 @@ export default async function handler(req, res) {
       `${d.name} (${d.role || 'role not given'}) at ${d.company} downloaded the ${lever} guide.`,
       ``,
       `Email: ${d.email}`,
-      `Mobile: ${d.phone}`,
+      `Mobile: ${d.phone || 'not given - follow up by email'}`,
       `Lead ID: ${d.lid || 'none (forwarded or direct visit)'}`,
       `Came from your mailbox: ${s.email}`,
       `Guide email sent: ${result.guide ? 'yes' : 'NO - send the PDF manually: ' + pdfUrl}`,
