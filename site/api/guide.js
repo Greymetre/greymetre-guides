@@ -4,6 +4,8 @@
 // Env: RESEND_API_KEY (required), SITE_URL (default https://go.greymetre.com),
 //      LOG_EMAIL (optional: extra copy of every alert), RESEND_AUDIENCE_ID (optional: add contact to a Resend audience)
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 const SITE = process.env.SITE_URL || 'https://go.greymetre.com';
 const CALENDLY = 'https://calendly.com/anadi-greymetre/30min';
 
@@ -87,6 +89,22 @@ function senderFor(m) {
   return { key: SENDERS[key] ? key : 'anadi', ...(SENDERS[key] || SENDERS.anadi) };
 }
 
+// 19-Nov-2026 v7: one-click requests from the cold email. k = first 24 hex of HMAC-SHA256(GUIDE_LINK_SECRET,
+// "lid|m|email|lever|first") - the same secret the email builder uses (Code/.guide_link_secret). A bad or missing
+// signature never sends anything, so the endpoint cannot be used to mail arbitrary addresses.
+function verifyOneClick(b, lever) {
+  const secret = process.env.GUIDE_LINK_SECRET;
+  if (!secret) return null;
+  const lid = clean(b.lid, 40), m = clean(b.m, 40), n = clean(b.n, 60);
+  let email = '';
+  try { email = clean(Buffer.from(String(b.e || ''), 'base64url').toString('utf8'), 160).toLowerCase(); } catch (e) { return null; }
+  const k = clean(b.k, 64).toLowerCase();
+  if (!lid || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) || !/^[0-9a-f]{24}$/.test(k)) return null;
+  const want = createHmac('sha256', secret).update(`${lid}|${m}|${email}|${lever}|${n}`).digest('hex').slice(0, 24);
+  if (!timingSafeEqual(Buffer.from(want), Buffer.from(k))) return null;
+  return { email, name: n };
+}
+
 async function resend(path, payload) {
   const r = await fetch(`https://api.resend.com${path}`, {
     method: 'POST',
@@ -120,16 +138,26 @@ export default async function handler(req, res) {
   };
 
   if (!guide) return res.status(400).json({ error: 'Unknown guide', field: 'lever' });
-  if (!d.name) return res.status(400).json({ error: 'Please enter your name.', field: 'name' });
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) return res.status(400).json({ error: 'Please enter a valid work email.', field: 'email' });
-  if (!d.company) return res.status(400).json({ error: 'Please enter your company.', field: 'company' });
-  if (d.phone && (d.phone.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '')).length !== 10) return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.', field: 'phone' });
-  if (!d.consent) return res.status(400).json({ error: 'Please tick the consent box to receive the guide.', field: 'consent' });
-  // bots: honeypot is handled client-side; also drop sub-2-second submits silently
-  if (Number(b.elapsed_ms) > 0 && Number(b.elapsed_ms) < 2000) return res.status(200).json({ ok: true });
+  const oneclick = b.mode === 'oneclick';
+  if (oneclick) {
+    const oc = verifyOneClick(b, lever);
+    if (!oc) return res.status(400).json({ error: 'This link could not be verified. Please use the form.', field: 'oneclick' });
+    d.email = oc.email; d.name = oc.name || 'there'; d.consent = true; d.source = 'oneclick';
+    // a human needs a moment to read and press the button; anything faster is an automated scanner
+    if (Number(b.elapsed_ms) > 0 && Number(b.elapsed_ms) < 700) return res.status(200).json({ ok: true });
+  }
+  if (!oneclick) {
+    if (!d.name) return res.status(400).json({ error: 'Please enter your name.', field: 'name' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email)) return res.status(400).json({ error: 'Please enter a valid work email.', field: 'email' });
+    if (!d.company) return res.status(400).json({ error: 'Please enter your company.', field: 'company' });
+    if (d.phone && (d.phone.replace(/\D/g, '').replace(/^(91|0)(?=\d{10}$)/, '')).length !== 10) return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.', field: 'phone' });
+    if (!d.consent) return res.status(400).json({ error: 'Please tick the consent box to receive the guide.', field: 'consent' });
+    // bots: honeypot is handled client-side; also drop sub-2-second submits silently
+    if (Number(b.elapsed_ms) > 0 && Number(b.elapsed_ms) < 2000) return res.status(200).json({ ok: true });
+  }
 
   const s = senderFor(b.m);
-  const first = d.name.split(/\s+/)[0];
+  const first = d.source === 'oneclick' ? d.name : d.name.split(/\s+/)[0]; // one-click: name exactly as the cold email greeted them
   const pdfUrl = `${SITE}/guides/${guide.file}`;
   const book = `${CALENDLY}?utm_source=guide_email&utm_campaign=${lever}`;
   const tags = [
@@ -178,7 +206,7 @@ export default async function handler(req, res) {
   const row = { ...d, sender: s.email, guide_email_id: result.guide && result.guide.id };
   try {
     const lines = [
-      `${d.name} (${d.role || 'role not given'}) at ${d.company} downloaded the ${lever} guide.`,
+      oneclick ? `${d.email} asked for the ${lever} guide with one click from your email (no form; company = see Lead ID).` : `${d.name} (${d.role || 'role not given'}) at ${d.company} downloaded the ${lever} guide.`,
       ``,
       `Email: ${d.email}`,
       `Mobile: ${d.phone || 'not given - follow up by email'}`,
@@ -196,7 +224,7 @@ export default async function handler(req, res) {
       from: `Greymetre Guides <guides@greymetre.com>`,
       to,
       reply_to: d.email,
-      subject: `Guide download: ${d.name}, ${d.company} (${lever})`,
+      subject: oneclick ? `Guide download: ${d.name === 'there' ? d.email : d.name}, one click (${lever})` : `Guide download: ${d.name}, ${d.company} (${lever})`,
       text: lines.join('\n'),
       tags: [{ name: 'type', value: 'guide_alert' }, { name: 'lever', value: lever }, { name: 'lid', value: tagSafe(d.lid) }, { name: 'mailbox', value: s.key }],
     });

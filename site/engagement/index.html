@@ -83,6 +83,16 @@ input:focus,select:focus{outline:2px solid #0E6E5C;outline-offset:1px}
 </div>
 
 <div style="flex: 0 1 420px; min-width: 280px; background: #FFFFFF; border: 1px solid #DCE3E0; border-radius: 12px; padding: 32px; box-sizing: border-box; box-shadow: 0 8px 28px rgba(20,35,46,0.08)">
+<div id="gm-panel-oneclick" hidden>
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="font-family: 'Sora', sans-serif; font-weight: 600; font-size: 22px">Your free guide is ready</div>
+<div style="font-size: 15px; line-height: 1.55; color: #3E4F59">No form to fill. We'll email it to <strong id="gm-oc-email"></strong>.</div>
+</div>
+<button id="gm-oc-btn" type="button" style="height: 52px; border: 0; border-radius: 8px; background: #0E6E5C; color: #FFFFFF; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 17px; cursor: pointer">Email me the guide</button>
+<div style="font-size: 13px; line-height: 1.5; color: #3E4F59">By clicking, you agree that Greymetre may contact you about this guide and related services. See our <a href="/privacy" target="_blank" rel="noopener">privacy policy</a>. <a href="#" id="gm-oc-other">Send it to a different email</a></div>
+</div>
+</div>
 <div id="gm-panel-form">
 <form id="gm-form" style="display: flex; flex-direction: column; gap: 18px">
 <div style="display: flex; flex-direction: column; gap: 4px">
@@ -129,9 +139,9 @@ input:focus,select:focus{outline:2px solid #0E6E5C;outline-offset:1px}
 <div style="width: 48px; height: 48px; border-radius: 24px; background: #E2F0EC; display: flex; align-items: center; justify-content: center">
 <svg width="24" height="24" viewBox="0 0 20 20" fill="none" stroke="#0E6E5C" stroke-width="2" aria-hidden="true"><path d="M4 10.5l4 4 8-9"></path></svg>
 </div>
-<div style="font-family: 'Sora', sans-serif; font-weight: 600; font-size: 22px">Your guide is ready</div>
-<div style="font-size: 15px; line-height: 1.55; color: #3E4F59">We've also emailed you a link, so you can come back to it later.</div>
-<a href="/guides/Five_Signs_Channel_Engagement_Greymetre.pdf" target="_blank" rel="noopener" style="height: 52px; border-radius: 8px; background: #0E6E5C; color: #FFFFFF; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 17px; text-decoration: none; display: flex; align-items: center; justify-content: center">Download PDF</a>
+<div id="gm-thanks-title" style="font-family: 'Sora', sans-serif; font-weight: 600; font-size: 22px">Your guide is ready</div>
+<div id="gm-thanks-msg" style="font-size: 15px; line-height: 1.55; color: #3E4F59">We've also emailed you a link, so you can come back to it later.</div>
+<a id="gm-thanks-pdf" href="/guides/Five_Signs_Channel_Engagement_Greymetre.pdf" target="_blank" rel="noopener" style="height: 52px; border-radius: 8px; background: #0E6E5C; color: #FFFFFF; font-family: 'Sora', sans-serif; font-weight: 600; font-size: 17px; text-decoration: none; display: flex; align-items: center; justify-content: center">Download PDF</a>
 <div style="border-top: 1px solid #E3E8E6; padding-top: 18px; display: flex; flex-direction: column; gap: 10px">
 <div style="font-weight: 600; font-size: 16px">Scored 3 or more on the scorecard?</div>
 <div style="font-size: 15px; line-height: 1.55; color: #3E4F59">Book a free 30-minute engagement health check. We'll show you where a tiered, verified programme would move share fastest.</div>
@@ -204,6 +214,42 @@ input:focus,select:focus{outline:2px solid #0E6E5C;outline-offset:1px}
   function done() {
     panelForm.hidden = true; panelThanks.hidden = false;
     panelThanks.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  // 19-Nov-2026 v7: one-click path. The cold email's button carries lid, m, n, e (base64url email) and k (HMAC).
+  // No form: one human click on "Email me the guide" (scanners load pages but rarely press buttons), then the
+  // server verifies k, mails the guide from the sender's mailbox and alerts that mailbox.
+  var oc = document.getElementById('gm-panel-oneclick');
+  var ocEmail = '';
+  try { if (q.get('e')) ocEmail = atob(q.get('e').replace(/-/g, '+').replace(/_/g, '/')); } catch (x) { ocEmail = ''; }
+  function showForm(msg) {
+    if (oc) oc.hidden = true; panelForm.hidden = false;
+    var em = document.getElementById('gm-email'), nm = document.getElementById('gm-name');
+    if (em && ocEmail && !em.value) em.value = ocEmail;
+    if (nm && q.get('n') && !nm.value) nm.value = q.get('n');
+    if (msg) { err.textContent = msg; err.hidden = false; }
+  }
+  function sent() {
+    document.getElementById('gm-thanks-title').textContent = 'Thank you';
+    document.getElementById('gm-thanks-msg').textContent = 'Your guide will be mailed to you shortly at ' + ocEmail + '.';
+    document.getElementById('gm-thanks-pdf').style.display = 'none';
+    oc.hidden = true; panelThanks.hidden = false;
+    panelThanks.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  if (oc && q.get('lid') && q.get('k') && ocEmail.indexOf('@') > 0) {
+    panelForm.hidden = true; oc.hidden = false;
+    document.getElementById('gm-oc-email').textContent = ocEmail;
+    var ocBtn = document.getElementById('gm-oc-btn');
+    document.getElementById('gm-oc-other').addEventListener('click', function (e) { e.preventDefault(); ocEmail = ''; showForm(); });
+    ocBtn.addEventListener('click', function () {
+      ocBtn.disabled = true; ocBtn.textContent = 'Sending…';
+      var fail = function (msg) { ocBtn.disabled = false; ocBtn.textContent = 'Email me the guide'; showForm(msg); };
+      fetch('/api/guide', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        mode: 'oneclick', lever: lever, lid: q.get('lid'), m: q.get('m') || '', n: q.get('n') || '', e: q.get('e'), k: q.get('k'),
+        utm_source: q.get('utm_source') || '', ref: document.referrer || '', elapsed_ms: Date.now() - started }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) { if (res.ok) sent(); else fail('We could not send it from this link. Please fill in your details below and we will email it right away.'); })
+        .catch(function () { fail('Something went wrong. Please fill in your details below.'); });
+    });
   }
   form.addEventListener('submit', function (e) {
     e.preventDefault();
