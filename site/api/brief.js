@@ -1,4 +1,4 @@
-// POST /api/brief  - function-brief view / download tracking (Vercel Node function), site v8 (25-Nov-2026)
+// POST /api/brief  - function-brief view / download tracking (Vercel Node function), site v8 (25-Nov-2026); v8.1 adds ceo_oem
 // The brief is NOT gated: /brief/<fn> shows it to anyone. This endpoint only records WHO looked at it, so the
 // sender can follow up the same day.
 //   event=view      sent by the page after the reader has had it open and visible for 4 seconds
@@ -28,6 +28,7 @@ export const BRIEFS = {
   sales: { label: 'Sales and channel', pdf: 'Greymetre_Brief_Sales_Channel.pdf' },
   marketing: { label: 'Marketing and loyalty', pdf: 'Greymetre_Brief_Marketing_Loyalty.pdf' },
   ceo: { label: 'MD / CEO', pdf: 'Greymetre_Brief_MD_CEO.pdf' },
+  ceo_oem: { label: 'MD / CEO (OEM and B2B)', pdf: 'Greymetre_Brief_MD_CEO_OEM_B2B.pdf' },
   it: { label: 'IT and digital', pdf: 'Greymetre_Brief_IT_Digital.pdf' },
 };
 
