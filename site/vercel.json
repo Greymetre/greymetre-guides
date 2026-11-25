@@ -2,22 +2,74 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/", "destination": "https://greymetre.io", "permanent": false },
-    { "source": "/guides", "destination": "https://greymetre.io", "permanent": false }
+    {
+      "source": "/",
+      "destination": "https://greymetre.io",
+      "permanent": false
+    },
+    {
+      "source": "/guides",
+      "destination": "https://greymetre.io",
+      "permanent": false
+    },
+    {
+      "source": "/brief",
+      "destination": "https://greymetre.io",
+      "permanent": false
+    },
+    {
+      "source": "/briefs",
+      "destination": "https://greymetre.io",
+      "permanent": false
+    }
   ],
   "headers": [
     {
       "source": "/guides/(.*).pdf",
       "headers": [
-        { "key": "X-Robots-Tag", "value": "noindex" },
-        { "key": "Cache-Control", "value": "public, max-age=3600" }
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/briefs/(.*).pdf",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600"
+        }
+      ]
+    },
+    {
+      "source": "/brief/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
       ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
       ]
     }
   ]
